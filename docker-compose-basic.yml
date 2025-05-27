@@ -1,0 +1,57 @@
+version: "3.8"
+
+networks:
+  hadoop-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
+
+services:
+  # ----------  IMAGE BUILD LAYERS ONLY  ----------
+  hadoop-base:
+    build: ./hadoop-base
+    image: congdon-base
+
+  # ----------  CORE HADOOP CLUSTER  ----------
+  master:
+    build: ./hadoop-cluster/master
+    image: congdon-master
+    container_name: congdon-master
+    hostname: congdon-master
+    depends_on:
+      - hadoop-base
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.2
+    extra_hosts:
+      - "congdon-slave1:172.19.0.3"
+    tty: true
+    stdin_open: true
+    ports:
+      - "9870:9870" # HDFS NameNode web UI
+      - "8088:8088" # YARN ResourceManager web UI
+      - "19888:19888" # JobHistory server web UI
+    volumes:
+      - hdfs_namenode:/home/hadoopcongdon/hadoop/hadoop_data/hdfs/namenode
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  slave1:
+    build: ./hadoop-cluster/slave
+    image: congdon-slave
+    container_name: congdon-slave1
+    hostname: congdon-slave1
+    depends_on:
+      - hadoop-base
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.3
+    extra_hosts:
+      - "congdon-master:172.19.0.2"
+    volumes:
+      - hdfs_datanode:/home/hadoopcongdon/hadoop/hadoop_data/hdfs/datanode
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+volumes:
+  hdfs_namenode:
+  hdfs_datanode:

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <!-- HDFS NameNode configuration -->
+    <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/home/hadoopcongdon/hadoop/hadoop_data/hdfs/namenode</value>
+        <description>Directory for storing the HDFS NameNode metadata</description>
+    </property>
+    
+    <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/home/hadoopcongdon/hadoop/hadoop_data/hdfs/datanode</value>
+        <description>Directory for storing the HDFS DataNode data</description>
+    </property>
+    
+    <!-- Replication factor for HDFS -->
+    <property>
+        <name>dfs.replication</name>
+        <value>1</value>
+        <description>Default block replication factor</description>
+    </property>
+    
+    <property>
+        <name>dfs.webhdfs.enabled</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>dfs.permissions.enabled</name>
+        <value>false</value>
+    </property>
+</configuration>

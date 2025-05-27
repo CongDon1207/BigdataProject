@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <!-- MapReduce framework configuration -->
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+        <description>The runtime framework for executing MapReduce jobs</description>
+    </property>
+    
+    <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>congdon-master:10020</value>
+    </property>
+    
+    <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>congdon-master:19888</value>
+    </property>
+    
+    <property>
+        <name>yarn.app.mapreduce.am.resource.mb</name>
+        <value>1536</value>
+        <description>Amount of memory for the MR AppMaster</description>
+    </property>
+    
+    <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>1024</value>
+        <description>Memory for Map tasks</description>
+    </property>
+    
+    <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>1024</value>
+        <description>Memory for Reduce tasks</description>
+    </property>
+</configuration>

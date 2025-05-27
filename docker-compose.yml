@@ -1,0 +1,218 @@
+version: "3.8"
+
+networks:
+  hadoop-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
+
+services:
+  # ----------  IMAGE BUILD LAYERS ONLY  ----------
+  hadoop-base:
+    build: ./hadoop-base
+    image: congdon-base
+
+  # ----------  CORE HADOOP CLUSTER  ----------
+  master:
+    build: ./hadoop-cluster/master
+    image: congdon-master
+    container_name: congdon-master
+    hostname: congdon-master
+    depends_on:
+      - hadoop-base
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.2
+    extra_hosts:
+      - "congdon-slave1:172.19.0.3"
+      - "congdon-hive:172.19.0.4"
+      - "congdon-spark:172.19.0.5"
+      - "congdon-trino:172.19.0.6"
+      - "congdon-kafka:172.19.0.7"
+      - "congdon-zookeeper:172.19.0.8"
+      - "congdon-superset:172.19.0.9"
+      - "congdon-hbase:172.19.0.10"
+      - "congdon-airflow:172.19.0.11"
+    tty: true
+    stdin_open: true
+    ports:
+      - "9870:9870" # HDFS NameNode web UI
+      - "8088:8088" # YARN ResourceManager web UI
+    volumes:
+      - hdfs_namenode:/home/hadoopcongdon/hadoop/hadoop_data/hdfs/namenode
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  slave1:
+    build: ./hadoop-cluster/slave
+    image: congdon-slave
+    container_name: congdon-slave1
+    hostname: congdon-slave1
+    depends_on:
+      - hadoop-base
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.3
+    extra_hosts:
+      - "congdon-master:172.19.0.2"
+    volumes:
+      - hdfs_datanode:/home/hadoopcongdon/hadoop/hadoop_data/hdfs/datanode
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  # ----------  DATA PROCESSING & ANALYTICS  ----------
+  hive:
+    build: ./services/hive
+    image: congdon-hive
+    container_name: congdon-hive
+    hostname: congdon-hive
+    depends_on:
+      - master
+      - slave1
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.4
+    extra_hosts:
+      - "congdon-master:172.19.0.2"
+      - "congdon-slave1:172.19.0.3"
+    ports:
+      - "10000:10000" # Hive Server
+      - "10002:10002" # Hive Web UI
+    volumes:
+      - hive_metastore:/home/hadoopcongdon/hive/metastore_db
+      - hive_warehouse:/home/hadoopcongdon/hive/warehouse
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  spark:
+    build: ./services/spark
+    image: congdon-spark
+    container_name: congdon-spark
+    hostname: congdon-spark
+    depends_on:
+      - master
+      - slave1
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.5
+    extra_hosts:
+      - "congdon-master:172.19.0.2"
+      - "congdon-slave1:172.19.0.3"
+      - "congdon-hive:172.19.0.4"
+    ports:
+      - "4040:4040" # Spark Web UI
+      - "8080:8080" # Spark Master Web UI
+      - "7077:7077" # Spark Master port
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  trino:
+    build: ./services/trino
+    image: congdon-trino
+    container_name: congdon-trino
+    hostname: congdon-trino
+    depends_on:
+      - hive
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.6
+    extra_hosts:
+      - "congdon-master:172.19.0.2"
+      - "congdon-hive:172.19.0.4"
+    ports:
+      - "8081:8080" # Trino Web UI
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  # ----------  DATA STREAMING & MESSAGING  ----------
+  zookeeper:
+    build: ./services/kafka/zookeeper
+    image: congdon-zookeeper
+    container_name: congdon-zookeeper
+    hostname: congdon-zookeeper
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.8
+    ports:
+      - "2181:2181" # ZooKeeper Client port
+    environment:
+      - ZOO_MY_ID=1
+      - ZOO_PORT=2181
+
+  kafka:
+    build: ./services/kafka
+    image: congdon-kafka
+    container_name: congdon-kafka
+    hostname: congdon-kafka
+    depends_on:
+      - zookeeper
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.7
+    extra_hosts:
+      - "congdon-zookeeper:172.19.0.8"
+    ports:
+      - "9092:9092" # Kafka Broker
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=congdon-zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://congdon-kafka:9092
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  # ----------  DATA VISUALIZATION & BI  ----------
+  superset:
+    build: ./services/superset
+    image: congdon-superset
+    container_name: congdon-superset
+    hostname: congdon-superset
+    depends_on:
+      - trino
+      - hive
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.9
+    ports:
+      - "8088:8088" # Superset Web UI
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  # ----------  ADDITIONAL COMPONENTS  ----------
+  hbase:
+    build: ./services/hbase
+    image: congdon-hbase
+    container_name: congdon-hbase
+    hostname: congdon-hbase
+    depends_on:
+      - master
+      - slave1
+      - zookeeper
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.10
+    extra_hosts:
+      - "congdon-master:172.19.0.2"
+      - "congdon-slave1:172.19.0.3"
+      - "congdon-zookeeper:172.19.0.8"
+    ports:
+      - "16010:16010" # HBase Master Web UI
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+  airflow:
+    build: ./services/airflow
+    image: congdon-airflow
+    container_name: congdon-airflow
+    hostname: congdon-airflow
+    depends_on:
+      - master
+      - hive
+      - spark
+    networks:
+      hadoop-net:
+        ipv4_address: 172.19.0.11
+    ports:
+      - "8090:8080" # Airflow Web UI
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+      - ./services/airflow/logs:/opt/airflow/logs
+      - ./services/airflow/plugins:/opt/airflow/plugins
+    command: /bin/bash -c "service ssh start && tail -f /dev/null"
+
+volumes:
+  hdfs_namenode:
+  hdfs_datanode:
+  hive_metastore:
+  hive_warehouse:
